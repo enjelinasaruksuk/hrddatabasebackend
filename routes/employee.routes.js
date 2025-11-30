@@ -13,13 +13,22 @@ import {
 
 const router = express.Router();
 
-router.get("/search", searchEmployees);
-router.get("/type/fulltime", getFulltimeEmployees);
-router.get("/type/parttime", getParttimeEmployees);
+// ========================================
+// PALING SPESIFIK DULU (GET routes)
+// ========================================
+router.get("/search", searchEmployees);                    // /api/employees/search
+router.get("/type/fulltime", getFulltimeEmployees);       // /api/employees/type/fulltime
+router.get("/type/parttime", getParttimeEmployees);       // /api/employees/type/parttime
 
-// CRUD ROUTES
-router.get("/", getAllEmployees);
-router.get("/:nik", getEmployeeById);
+// ========================================
+// PALING UMUM PALING AKHIR
+// ========================================
+router.get("/", getAllEmployees);                         // /api/employees
+router.get("/:nik", getEmployeeById);                     // /api/employees/:nik (PALING AKHIR!)
+
+// ========================================
+// POST, PUT, DELETE
+// ========================================
 router.post("/", upload.fields([
     { name: "photo" },
     { name: "ktp" },
@@ -34,6 +43,7 @@ router.post("/", upload.fields([
   ]),
   createEmployee
 );
+
 router.put("/:nik", updateEmployee);
 router.delete("/:nik", deleteEmployee);
 
