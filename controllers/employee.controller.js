@@ -1,3 +1,5 @@
+import fs from "fs";
+import path from "path";
 import Employee from "../models/employee.model.js";
 import db from "../config/db.config.js";
 
@@ -373,7 +375,7 @@ export const updateEmployee = async (req, res) => {
     ];
     await db.promise().query(sqlEmployee, valuesEmployee);
 
-    // 2. Update SALARY jika ada
+    // 2. Update SALARY 
     const {
       salary_all_in, salary_basic, fixed_allowance, allowance_irregular,
       bpjs_employment, bpjs_health
@@ -409,21 +411,41 @@ export const updateEmployee = async (req, res) => {
     }
 
     // 4. Update FILES
-    const fileFields = [
-      "photo","ktp","npwpFile","bpjsKesehatan","bpjsKetenagakerjaan",
-      "kartukeluarga","sertifikattraining","hasilmcu","cvkaryawan","degreeCertificate"
-    ];
-    for (const field of fileFields) {
-      if (req.files?.[field]) {
-        const file = req.files[field][0];
-        // Hapus file lama jika perlu
-        const oldFileRow = await db.promise().query(`SELECT ${field} FROM employees WHERE NIK=?`, [nik]);
-        const oldFile = oldFileRow[0][0]?.[field];
-        if (oldFile) fs.unlinkSync(path.join("uploads", oldFile));
-        // Update DB
-        await db.promise().query(`UPDATE employees SET ${field}=? WHERE NIK=?`, [file.filename, nik]);
-      }
+    const fileMap = {
+  photo: "photo",
+  ktp: "file_ktp",
+  npwpFile: "file_npwp",
+  bpjsKesehatan: "file_bpjs_kesehatan",
+  bpjsKetenagakerjaan: "file_bpjs_ketenagakerjaan",
+  kartukeluarga: "file_kk",
+  sertifikattraining: "file_training",
+  hasilmcu: "file_mcu",
+  cvkaryawan: "file_cv",
+  degreeCertificate: "file_ijazah"
+};
+
+for (const field in fileMap) {
+  if (req.files?.[field]) {
+    const file = req.files[field][0];
+    const columnName = fileMap[field];
+
+    const [oldFileRows] = await db.promise().query(
+      `SELECT ${columnName} FROM employees WHERE NIK=?`,
+      [nik]
+    );
+    const oldFile = oldFileRows[0]?.[columnName];
+
+    if (oldFile) {
+      const filePath = path.join("uploads", oldFile);
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
     }
+
+    await db.promise().query(
+      `UPDATE employees SET ${columnName}=? WHERE NIK=?`,
+      [file.filename, nik]
+    );
+  }
+}
 
     res.json({ message: "Employee updated successfully" });
 
