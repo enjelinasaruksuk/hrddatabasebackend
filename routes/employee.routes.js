@@ -13,22 +13,16 @@ import {
 
 const router = express.Router();
 
-// ========================================
 // PALING SPESIFIK DULU (GET routes)
-// ========================================
 router.get("/search", searchEmployees);                    // /api/employees/search
 router.get("/type/fulltime", getFulltimeEmployees);       // /api/employees/type/fulltime
 router.get("/type/parttime", getParttimeEmployees);       // /api/employees/type/parttime
 
-// ========================================
 // PALING UMUM PALING AKHIR
-// ========================================
 router.get("/", getAllEmployees);                         // /api/employees
 router.get("/:nik", getEmployeeById);                     // /api/employees/:nik (PALING AKHIR!)
 
-// ========================================
 // POST, PUT, DELETE
-// ========================================
 router.post("/", upload.fields([
     { name: "photo" },
     { name: "ktp" },
@@ -44,7 +38,21 @@ router.post("/", upload.fields([
   createEmployee
 );
 
-router.put("/:nik", updateEmployee);
+router.put("/:nik",
+  upload.fields([
+    { name: "photo" },
+    { name: "ktp" },
+    { name: "npwpFile" },
+    { name: "bpjsKesehatan" },
+    { name: "bpjsKetenagakerjaan" },
+    { name: "kartukeluarga" },
+    { name: "sertifikattraining" },
+    { name: "hasilmcu" },
+    { name: "cvkaryawan" },
+    { name: "degreeCertificate" }
+  ]), 
+ updateEmployee);
+
 router.delete("/:nik", deleteEmployee);
 
 export default router;

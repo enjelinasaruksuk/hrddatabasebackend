@@ -41,11 +41,11 @@ export const getParttimeEmployees = (req, res) => {
   );
 };
 
-// GET employee by NIK - DENGAN SEMUA FIELD (FIXED)
-export const getEmployeeById = (req, res) => {
+// GET employee by NIK - SIMPLE VERSION tanpa complex JOIN
+export const getEmployeeById = async (req, res) => {
   const nik = req.params.nik || req.params.id || req.query.nik;
   
-  console.log("\n=== getEmployeeById ===");
+  console.log("\n=== getEmployeeById START ===");
   console.log("NIK yang akan dipakai:", nik);
 
   if (!nik) {
@@ -53,75 +53,88 @@ export const getEmployeeById = (req, res) => {
     return res.status(400).json({ message: "NIK parameter required" });
   }
 
-  // Query dengan JOIN ke semua tabel yang diperlukan
-  const query = `
-    SELECT 
-      e.NIK,
-      e.name,
-      e.birth_place,
-      e.birth_date,
-      e.age,
-      e.ktp_number,
-      e.mother_name,
-      e.religion,
-      e.address,
-      e.phone_number,
-      e.marital_status,
-      e.last_education,
-      e.bank_account,
-      e.tax_number,
-      e.photo,
-      e.department_id,
-      e.position,
-      e.employment_type,
-      e.identity_number,
-      e.file_ktp,
-      e.file_npwp,
-      e.file_bpjs_kesehatan,
-      e.file_bpjs_ketenagakerjaan,
-      e.file_kk,
-      e.file_training,
-      e.file_mcu,
-      e.file_cv,
-      e.file_ijazah,
-      dp.department_name,
-      d.division_name,
-      c.date_join,
-      c.date_end,
-      c.contract_status,
-      s.salary_all_in,
-      s.salary_basic,
-      s.fixed_allowance,
-      s.non_fixed_allowance AS allowance_irregular,
-      s.bpjs_employment,
-      s.bpjs_health,
-      GROUP_CONCAT(DISTINCT DATE_FORMAT(m.last_mcu_date, '%d/%m/%Y') ORDER BY m.last_mcu_date DESC SEPARATOR ', ') AS mcu_history,
-      GROUP_CONCAT(DISTINCT CONCAT(t.detail, ' (', DATE_FORMAT(t.training_date, '%d/%m/%Y'), ')') ORDER BY t.training_date DESC SEPARATOR ', ') AS training_list
-    FROM employees e
-    LEFT JOIN departments dp ON e.department_id = dp.department_id
-    LEFT JOIN divisions d ON dp.division_id = d.division_id
-    LEFT JOIN contracts c ON e.NIK = c.NIK
-    LEFT JOIN salary s ON e.NIK = s.NIK
-    LEFT JOIN mcu m ON e.NIK = m.NIK
-    LEFT JOIN training t ON e.NIK = t.NIK
-    WHERE e.NIK = ?
-    GROUP BY e.NIK
-  `;
+  try {
+    // Query 1: Data employee dengan department & division
+    const employeeQuery = `
+      SELECT 
+        e.*,
+        dp.department_name,
+        d.division_name
+      FROM employees e
+      LEFT JOIN departments dp ON e.department_id = dp.department_id
+      LEFT JOIN divisions d ON dp.division_id = d.division_id
+      WHERE e.NIK = ?
+    `;
 
-  db.query(query, [nik], (err, results) => {
-    if (err) {
-      console.error("DB Error:", err);
-      return res.status(500).json({ error: err.message });
-    }
-
-    if (!results || results.length === 0) {
+    const [employeeResults] = await db.promise().query(employeeQuery, [nik]);
+    
+    if (!employeeResults || employeeResults.length === 0) {
       console.log("Data not found for NIK:", nik);
       return res.status(404).json({ message: "Employee not found" });
     }
 
-    console.log("Success! Returning data");
-    res.json(results[0]);
-  });
+    const employee = employeeResults[0];
+
+    // Query 2: Data salary
+    const salaryQuery = `SELECT * FROM salary WHERE NIK = ?`;
+    const [salaryResults] = await db.promise().query(salaryQuery, [nik]);
+    const salary = salaryResults && salaryResults.length > 0 ? salaryResults[0] : {};
+
+    // Query 3: Data contract
+    const contractQuery = `SELECT * FROM contracts WHERE NIK = ?`;
+    const [contractResults] = await db.promise().query(contractQuery, [nik]);
+    const contract = contractResults && contractResults.length > 0 ? contractResults[0] : {};
+
+    // Query 4: Data MCU (ambil yang terbaru)
+    const mcuQuery = `
+      SELECT 
+        GROUP_CONCAT(DATE_FORMAT(last_mcu_date, '%d/%m/%Y') ORDER BY last_mcu_date DESC SEPARATOR ', ') AS mcu_history
+      FROM mcu 
+      WHERE NIK = ?
+    `;
+    const [mcuResults] = await db.promise().query(mcuQuery, [nik]);
+    const mcuHistory = mcuResults && mcuResults.length > 0 ? mcuResults[0].mcu_history : null;
+
+    // Query 5: Data training
+    const trainingQuery = `
+      SELECT 
+        GROUP_CONCAT(CONCAT(detail, ' (', DATE_FORMAT(training_date, '%d/%m/%Y'), ')') ORDER BY training_date DESC SEPARATOR ', ') AS training_list
+      FROM training 
+      WHERE NIK = ?
+    `;
+    const [trainingResults] = await db.promise().query(trainingQuery, [nik]);
+    const trainingList = trainingResults && trainingResults.length > 0 ? trainingResults[0].training_list : null;
+
+    // Gabungkan semua data
+    const result = {
+      ...employee,
+      salary_all_in: salary.salary_all_in || null,
+      salary_basic: salary.salary_basic || null,
+      fixed_allowance: salary.fixed_allowance || null,
+      allowance_irregular: salary.non_fixed_allowance || null,
+      bpjs_employment: salary.bpjs_employment || null,
+      bpjs_health: salary.bpjs_health || null,
+      date_join: contract.date_join || null,
+      date_end: contract.date_end || null,
+      contract_status: contract.contract_status || null,
+      mcu_history: mcuHistory,
+      training_list: trainingList
+    };
+
+    console.log("✅ Success! Returning data");
+    console.log("BPJS Employment:", result.bpjs_employment);
+    console.log("BPJS Health:", result.bpjs_health);
+    console.log("=== getEmployeeById END ===\n");
+    
+    res.json(result);
+
+  } catch (error) {
+    console.error("❌ Error:", error);
+    return res.status(500).json({ 
+      error: error.message,
+      details: error.sqlMessage || error.toString()
+    });
+  }
 };
 
 export const searchEmployees = (req, res) => {
@@ -334,33 +347,92 @@ export const createEmployee = async (req, res) => {
   }
 };
 
-export const updateEmployee = (req, res) => {
+export const updateEmployee = async (req, res) => {
   const nik = req.params.nik;
-  const dataToUpdate = {
-    nik: req.body.nik,
-    name: req.body.name,
-    address: req.body.address,
-    birth_place: req.body.birth_place,
-    birth_date: req.body.birth_date,
-    age: req.body.age,
-    phone_number: req.body.phone_number,
-    last_education: req.body.last_education,
-    mother_name: req.body.mother_name,
-    religion: req.body.religion,
-    marital_status: req.body.marital_status,
-    department_id: req.body.department_id,
-    employment_type: req.body.employment_type,
-    identity_number: req.body.identity_number,
-    tax_number: req.body.tax_number,
-    bank_account: req.body.bank_account,
-    position: req.body.position
-  };
+  if (!nik) return res.status(400).json({ message: "NIK required" });
 
-  Employee.update(nik, dataToUpdate, (err) => {
-    if (err) return res.status(500).json({ error: err });
-    res.json({ message: "Employee updated" });
-  });
+  try {
+    // 1. Update EMPLOYEES
+    const {
+      name, mother_name, address, religion, birth_place, birth_date, age,
+      marital_status, phone_number, identity_number, last_education,
+      tax_number, bank_account, department_id, position
+    } = req.body;
+
+    const sqlEmployee = `
+      UPDATE employees SET
+        name=?, mother_name=?, address=?, religion=?, birth_place=?, birth_date=?,
+        age=?, marital_status=?, phone_number=?, identity_number=?, last_education=?,
+        tax_number=?, bank_account=?, department_id=?, position=?
+      WHERE NIK=?
+    `;
+    const valuesEmployee = [
+      name, mother_name, address, religion, birth_place, birth_date,
+      age, marital_status, phone_number, identity_number, last_education,
+      tax_number, bank_account, department_id, position, nik
+    ];
+    await db.promise().query(sqlEmployee, valuesEmployee);
+
+    // 2. Update SALARY jika ada
+    const {
+      salary_all_in, salary_basic, fixed_allowance, allowance_irregular,
+      bpjs_employment, bpjs_health
+    } = req.body;
+
+    if (salary_all_in || salary_basic || fixed_allowance || allowance_irregular) {
+      const clean = str => str ? parseInt(str.replace(/\./g,'')) : null;
+      const sqlSalary = `
+        UPDATE salary SET
+          salary_all_in=?, salary_basic=?, fixed_allowance=?, non_fixed_allowance=?,
+          bpjs_employment=?, bpjs_health=?
+        WHERE NIK=?
+      `;
+      const valuesSalary = [
+        clean(salary_all_in),
+        clean(salary_basic),
+        clean(fixed_allowance),
+        clean(allowance_irregular),
+        bpjs_employment || null,
+        bpjs_health || null,
+        nik
+      ];
+      await db.promise().query(sqlSalary, valuesSalary);
+    }
+
+    // 3. Update CONTRACT
+    const { date_join, date_end } = req.body;
+    if (date_join || date_end) {
+      const sqlContract = `
+        UPDATE contracts SET date_join=?, date_end=? WHERE NIK=?
+      `;
+      await db.promise().query(sqlContract, [date_join || null, date_end || null, nik]);
+    }
+
+    // 4. Update FILES
+    const fileFields = [
+      "photo","ktp","npwpFile","bpjsKesehatan","bpjsKetenagakerjaan",
+      "kartukeluarga","sertifikattraining","hasilmcu","cvkaryawan","degreeCertificate"
+    ];
+    for (const field of fileFields) {
+      if (req.files?.[field]) {
+        const file = req.files[field][0];
+        // Hapus file lama jika perlu
+        const oldFileRow = await db.promise().query(`SELECT ${field} FROM employees WHERE NIK=?`, [nik]);
+        const oldFile = oldFileRow[0][0]?.[field];
+        if (oldFile) fs.unlinkSync(path.join("uploads", oldFile));
+        // Update DB
+        await db.promise().query(`UPDATE employees SET ${field}=? WHERE NIK=?`, [file.filename, nik]);
+      }
+    }
+
+    res.json({ message: "Employee updated successfully" });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
 };
+
 
 // DELETE employee
 export const deleteEmployee = async (req, res) => {
