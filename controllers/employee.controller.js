@@ -25,7 +25,7 @@ export const getFulltimeEmployees = (req, res) => {
   );
 };
 
-// GET parttime employees
+// GET parttime employees + FILTER
 export const getParttimeEmployees = (req, res) => {
   const { keyword, division, department } = req.query;
 
@@ -41,19 +41,12 @@ export const getParttimeEmployees = (req, res) => {
   );
 };
 
-// GET employee by NIK - DENGAN SEMUA FIELD (FIXED)
+// GET employee by NIK - DENGAN SEMUA FIELD
 export const getEmployeeById = (req, res) => {
   const nik = req.params.nik || req.params.id || req.query.nik;
-  
-  console.log("\n=== getEmployeeById ===");
-  console.log("NIK yang akan dipakai:", nik);
 
-  if (!nik) {
-    console.log("NIK kosong!");
-    return res.status(400).json({ message: "NIK parameter required" });
-  }
+  if (!nik) return res.status(400).json({ message: "NIK parameter required" });
 
-  // Query dengan JOIN ke semua tabel yang diperlukan
   const query = `
     SELECT 
       e.NIK,
@@ -109,21 +102,13 @@ export const getEmployeeById = (req, res) => {
   `;
 
   db.query(query, [nik], (err, results) => {
-    if (err) {
-      console.error("DB Error:", err);
-      return res.status(500).json({ error: err.message });
-    }
-
-    if (!results || results.length === 0) {
-      console.log("Data not found for NIK:", nik);
-      return res.status(404).json({ message: "Employee not found" });
-    }
-
-    console.log("Success! Returning data");
+    if (err) return res.status(500).json({ error: err.message });
+    if (!results || results.length === 0) return res.status(404).json({ message: "Employee not found" });
     res.json(results[0]);
   });
 };
 
+// SEARCH employees
 export const searchEmployees = (req, res) => {
   const { keyword, type } = req.query;
   if (!keyword) return res.status(400).json({ message: "Keyword harus diisi" });
@@ -150,7 +135,7 @@ export const searchEmployees = (req, res) => {
   });
 };
 
-// CREATE employee - INSERT KE MULTIPLE TABLES
+// CREATE employee
 export const createEmployee = async (req, res) => {
   try {
     const {
@@ -171,7 +156,6 @@ export const createEmployee = async (req, res) => {
       department_id,
       position,
       employment_type,
-      // Data tambahan untuk tabel lain
       salary_all_in,
       salary_basic,
       fixed_allowance,
@@ -199,7 +183,7 @@ export const createEmployee = async (req, res) => {
       file_ijazah: req.files.degreeCertificate?.[0]?.filename || null
     };
 
-    // 1. INSERT ke tabel EMPLOYEES
+    // INSERT EMPLOYEES
     const sqlEmployee = `
       INSERT INTO employees
       (NIK, name, birth_place, birth_date, age, mother_name, religion,
@@ -211,46 +195,23 @@ export const createEmployee = async (req, res) => {
     `;
 
     const valuesEmployee = [
-      nik,
-      name,
-      birth_place,
-      birth_date,
-      age,
-      mother_name,
-      religion,
-      address,
-      phone_number,
-      marital_status,
-      last_education,
-      bank_account,
-      identity_number,
-      tax_number,
-      department_id,
-      position,
-      employment_type,
-      fileData.photo,
-      fileData.file_ktp,
-      fileData.file_npwp,
-      fileData.file_bpjs_kesehatan,
-      fileData.file_bpjs_ketenagakerjaan,
-      fileData.file_kk,
-      fileData.file_training,
-      fileData.file_mcu,
-      fileData.file_cv,
-      fileData.file_ijazah
+      nik, name, birth_place, birth_date, age, mother_name, religion,
+      address, phone_number, marital_status, last_education, bank_account,
+      identity_number, tax_number, department_id, position, employment_type,
+      fileData.photo, fileData.file_ktp, fileData.file_npwp, fileData.file_bpjs_kesehatan,
+      fileData.file_bpjs_ketenagakerjaan, fileData.file_kk, fileData.file_training,
+      fileData.file_mcu, fileData.file_cv, fileData.file_ijazah
     ];
 
     await db.promise().query(sqlEmployee, valuesEmployee);
 
-    // 2. INSERT ke tabel SALARY (jika ada data salary)
+    // INSERT SALARY
     if (salary_all_in || salary_basic || fixed_allowance || non_fixed_allowance) {
       const sqlSalary = `
         INSERT INTO salary 
         (NIK, salary_all_in, salary_basic, fixed_allowance, non_fixed_allowance, bpjs_employment, bpjs_health)
         VALUES (?, ?, ?, ?, ?, ?, ?)
       `;
-      
-      // Konversi format rupiah (hapus titik) ke angka
       const cleanNumber = (str) => str ? parseInt(str.replace(/\./g, '')) : null;
 
       const valuesSalary = [
@@ -266,74 +227,44 @@ export const createEmployee = async (req, res) => {
       await db.promise().query(sqlSalary, valuesSalary);
     }
 
-    // 3. INSERT ke tabel CONTRACTS (jika ada date_join atau date_end)
+    // INSERT CONTRACT
     if (date_join || date_end) {
       const sqlContract = `
         INSERT INTO contracts 
         (NIK, date_join, date_end, contract_status)
         VALUES (?, ?, ?, ?)
       `;
-
-      const valuesContract = [
-        nik,
-        date_join || null,
-        date_end || null,
-        'Active'
-      ];
-
+      const valuesContract = [nik, date_join || null, date_end || null, 'Active'];
       await db.promise().query(sqlContract, valuesContract);
     }
 
-    // 4. INSERT ke tabel MCU (jika ada mcu_date)
+    // INSERT MCU
     if (mcu_date) {
-      const sqlMcu = `
-        INSERT INTO mcu 
-        (NIK, last_mcu_date, mcu_result)
-        VALUES (?, ?, ?)
-      `;
-
-      const valuesMcu = [
-        nik,
-        mcu_date,
-        'Medical Check Up Completed'
-      ];
-
+      const sqlMcu = `INSERT INTO mcu (NIK, last_mcu_date, mcu_result) VALUES (?, ?, ?)`;
+      const valuesMcu = [nik, mcu_date, 'Medical Check Up Completed'];
       await db.promise().query(sqlMcu, valuesMcu);
     }
 
-    // 5. INSERT ke tabel TRAINING (jika ada training_detail)
+    // INSERT TRAINING
     if (training_detail && training_date) {
       const sqlTraining = `
         INSERT INTO training 
         (NIK, detail, training_date, expiry_date, certificate_file)
         VALUES (?, ?, ?, ?, ?)
       `;
-
-      const valuesTraining = [
-        nik,
-        training_detail,
-        training_date,
-        expiry_date || null,
-        fileData.file_training
-      ];
-
+      const valuesTraining = [nik, training_detail, training_date, expiry_date || null, fileData.file_training];
       await db.promise().query(sqlTraining, valuesTraining);
     }
 
-    res.json({ 
-      message: "Employee created successfully with all related data",
-      nik: nik 
-    });
+    res.json({ message: "Employee created successfully", nik });
 
   } catch (error) {
     console.error("Error creating employee:", error);
-    res.status(500).json({ 
-      message: "Failed to create employee",
-      error: error.message 
-    });
+    res.status(500).json({ message: "Failed to create employee", error: error.message });
   }
 };
 
+// UPDATE employee
 export const updateEmployee = (req, res) => {
   const nik = req.params.nik;
   const dataToUpdate = {
@@ -366,14 +297,24 @@ export const updateEmployee = (req, res) => {
 export const deleteEmployee = async (req, res) => {
   const nik = req.params.nik;
   try {
-    const [result] = await db.promise().query(
-      "DELETE FROM employees WHERE NIK = ?",
-      [nik]
-    );
-    if (result.affectedRows === 0)
-      return res.status(404).json({ message: "Employee not found" });
+    const [result] = await db.promise().query("DELETE FROM employees WHERE NIK = ?", [nik]);
+    if (result.affectedRows === 0) return res.status(404).json({ message: "Employee not found" });
     res.json({ message: "Employee deleted successfully" });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+};
+
+// GET counts fulltime & parttime (DASHBOARD)
+export const getEmployeeCounts = (req, res) => {
+  const sql = `
+    SELECT 
+      SUM(CASE WHEN employment_type = 'fulltime' THEN 1 ELSE 0 END) AS fulltime,
+      SUM(CASE WHEN employment_type = 'parttime' THEN 1 ELSE 0 END) AS parttime
+    FROM employees
+  `;
+  db.query(sql, (err, results) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(results[0]); // { fulltime: 245, parttime: 105 }
+  });
 };

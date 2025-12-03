@@ -8,7 +8,8 @@ import {
   deleteEmployee,
   getFulltimeEmployees,
   getParttimeEmployees,
-  searchEmployees 
+  searchEmployees,
+  getEmployeeCounts  // <- wajib ditambahkan biar router /count jalan
 } from "../controllers/employee.controller.js";
 
 const router = express.Router();
@@ -19,6 +20,7 @@ const router = express.Router();
 router.get("/search", searchEmployees);                    // /api/employees/search
 router.get("/type/fulltime", getFulltimeEmployees);       // /api/employees/type/fulltime
 router.get("/type/parttime", getParttimeEmployees);       // /api/employees/type/parttime
+router.get("/count", getEmployeeCounts);                  // /api/employees/count
 
 // ========================================
 // PALING UMUM PALING AKHIR
@@ -29,7 +31,9 @@ router.get("/:nik", getEmployeeById);                     // /api/employees/:nik
 // ========================================
 // POST, PUT, DELETE
 // ========================================
-router.post("/", upload.fields([
+router.post(
+  "/",
+  upload.fields([
     { name: "photo" },
     { name: "ktp" },
     { name: "npwpFile" },
