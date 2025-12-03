@@ -3,89 +3,184 @@ import db from "../config/db.config.js";
 const Employee = {
   // GET all employees
   getAll: (callback) => {
-    const query = `
-      SELECT 
-        e.*,
-        dp.department_name AS department_name,
-        d.division_name AS division_name
-      FROM employees e
-      LEFT JOIN departments dp ON e.department_id = dp.department_id
-      LEFT JOIN divisions d ON dp.division_id = d.division_id
-    `;
-    db.query(query, callback);
-  },
+  const query = `
+    SELECT 
+      e.*,
+      dp.department_name AS department_name,
+      dv.division_name AS division_name,
 
-  // GET employees by employment type dengan filter
-  getByEmploymentType: (type, keyword, division, department, callback) => {
-    let query = `
-      SELECT 
-        e.*,
-        dp.department_name AS department_name,
-        d.division_name AS division_name
-      FROM employees e
-      LEFT JOIN departments dp ON e.department_id = dp.department_id
-      LEFT JOIN divisions d ON dp.division_id = d.division_id
-      WHERE e.employment_type = ?
-    `;
-    let params = [type];
+      -- Salary
+      s.salary_all_in,
+      s.salary_basic,
+      s.fixed_allowance,
+      s.non_fixed_allowance AS allowance_irregular,
+      s.bpjs_employment,
+      s.bpjs_health,
 
-    if (keyword) {
-      query += ` AND (e.name LIKE ? OR e.NIK LIKE ?)`;
-      const like = `%${keyword}%`;
-      params.push(like, like);
-    }
+      -- Contract
+      c.date_join,
+      c.date_end,
+      c.contract_status,
 
-    if (division) {
-      query += ` AND d.division_name = ?`;
-      params.push(division);
-    }
+      -- MCU (latest)
+      (
+        SELECT DATE_FORMAT(last_mcu_date, '%Y-%m-%d')
+        FROM mcu 
+        WHERE NIK = e.NIK
+        ORDER BY last_mcu_date DESC 
+        LIMIT 1
+      ) AS mcu_history,
 
-    if (department) {
-      query += ` AND dp.department_name = ?`;
-      params.push(department);
-    }
+      -- TRAINING
+      (
+        SELECT GROUP_CONCAT(
+          CONCAT(detail, ' (', DATE_FORMAT(training_date,'%Y-%m-%d'), ')')
+          ORDER BY training_date DESC SEPARATOR ', '
+        )
+        FROM training 
+        WHERE NIK = e.NIK
+      ) AS training_list
 
-    db.query(query, params, callback);
-  },
+    FROM employees e
+    LEFT JOIN departments dp ON e.department_id = dp.department_id
+    LEFT JOIN divisions dv ON dp.division_id = dv.division_id
+    LEFT JOIN salary s ON s.nik = e.NIK
+    LEFT JOIN contracts c ON c.nik = e.NIK
+    LEFT JOIN mcu m ON m.nik = e.NIK
+    LEFT JOIN training t ON t.nik = e.NIK
+  `;
+  db.query(query, callback);
+},
+
+  // GET employees by employment type lengkap dengan salary, contract, MCU, training
+getByEmploymentType: (type, keyword, division, department, callback) => {
+  let query = `
+    SELECT 
+      e.*,
+      dp.department_name AS department_name,
+      d.division_name AS division_name,
+
+      -- Salary
+      s.salary_all_in,
+      s.salary_basic,
+      s.fixed_allowance,
+      s.non_fixed_allowance AS allowance_irregular,
+      s.bpjs_employment,
+      s.bpjs_health,
+
+      -- Contract
+      c.date_join,
+      c.date_end,
+      c.contract_status,
+
+      -- MCU (latest)
+      (
+        SELECT DATE_FORMAT(last_mcu_date, '%Y-%m-%d')
+        FROM mcu 
+        WHERE NIK = e.NIK
+        ORDER BY last_mcu_date DESC 
+        LIMIT 1
+      ) AS last_mcu_date,
+
+      -- TRAINING
+      (
+        SELECT GROUP_CONCAT(
+          CONCAT(detail, ' (', DATE_FORMAT(training_date,'%Y-%m-%d'), ')')
+          ORDER BY training_date DESC SEPARATOR ', '
+        )
+        FROM training 
+        WHERE NIK = e.NIK
+      ) AS training_list
+
+    FROM employees e
+    LEFT JOIN departments dp ON e.department_id = dp.department_id
+    LEFT JOIN divisions d ON dp.division_id = d.division_id
+    LEFT JOIN salary s ON e.NIK = s.NIK
+    LEFT JOIN contracts c ON e.NIK = c.NIK
+    WHERE e.employment_type = ?
+  `;
+
+  let params = [type];
+
+  if (keyword) {
+    query += ` AND (e.name LIKE ? OR e.NIK LIKE ?)`;
+    const like = `%${keyword}%`;
+    params.push(like, like);
+  }
+
+  if (division) {
+    query += ` AND d.division_name = ?`;
+    params.push(division);
+  }
+
+  if (department) {
+    query += ` AND dp.department_name = ?`;
+    params.push(department);
+  }
+
+  db.query(query, params, callback);
+},
 
   // GET employee by NIK - DENGAN DEBUG
   getById: (nik, callback) => {
-    console.log("\n=== MODEL getById DEBUG ===");
-    console.log("NIK input:", nik);
-    console.log("Tipe:", typeof nik);
+  console.log("\n=== MODEL getById DEBUG ===");
+  console.log("NIK input:", nik);
 
-    const query = `
-      SELECT 
-        e.*,
-        dp.department_name AS department_name,
-        d.division_name AS division_name
-      FROM employees e
-      LEFT JOIN departments dp ON e.department_id = dp.department_id
-      LEFT JOIN divisions d ON dp.division_id = d.division_id
-      WHERE e.NIK = ?
-    `;
+  const query = `
+    SELECT 
+      e.*,
+      dp.department_name AS department_name,
+      d.division_name AS division_name,
 
-    console.log("Query SQL:", query);
-    console.log("Parameter:", [nik]);
+      -- Salary
+      s.salary_all_in,
+      s.salary_basic,
+      s.fixed_allowance,
+      s.non_fixed_allowance AS allowance_irregular,
+      s.bpjs_employment,
+      s.bpjs_health,
 
-    db.query(query, [nik], (err, results) => {
-      console.log("Error:", err);
-      console.log("Results:", results);
-      console.log("Results length:", results ? results.length : 0);
+      -- Contract
+      c.date_join,
+      c.date_end,
+      c.contract_status,
 
-      if (err) {
-        console.error("Database error:", err);
-        return callback(err, null);
-      }
+      -- MCU (latest)
+      (
+        SELECT DATE_FORMAT(last_mcu_date, '%Y-%m-%d')
+        FROM mcu 
+        WHERE NIK = e.NIK
+        ORDER BY last_mcu_date DESC 
+        LIMIT 1
+      ) AS last_mcu_date,
 
-      // Return single object, bukan array
-      const result = results && results.length > 0 ? results[0] : null;
-      console.log("Final result:", result);
-      console.log("=== END DEBUG ===\n");
+      -- TRAINING
+      (
+        SELECT GROUP_CONCAT(
+          CONCAT(detail, ' (', DATE_FORMAT(training_date,'%Y-%m-%d'), ')')
+          ORDER BY training_date DESC SEPARATOR ', '
+        )
+        FROM training 
+        WHERE NIK = e.NIK
+      ) AS training_list
 
-      callback(null, result);
-    });
-  },
+    FROM employees e
+    LEFT JOIN departments dp ON e.department_id = dp.department_id
+    LEFT JOIN divisions dv ON dp.division_id = dv.division_id
+    LEFT JOIN salary s ON s.nik = e.NIK
+    LEFT JOIN contracts c ON c.nik = e.NIK
+    LEFT JOIN mcu m ON m.nik = e.NIK
+    LEFT JOIN training t ON t.nik = e.NIK
+    WHERE e.NIK = ?
+  `;
+
+  db.query(query, [nik], (err, results) => {
+    if (err) return callback(err, null);
+
+    const result = results && results.length > 0 ? results[0] : null;
+    callback(null, result);
+  });
+},
 
   // SEARCH - cari berdasarkan NIK atau nama
   search: (keyword, callback) => {
