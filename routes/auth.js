@@ -39,7 +39,7 @@ router.post("/login", async (req, res) => {
 
           const token = jwt.sign(
             { id: insertResult.insertId, role },
-            process.env.JWT_SECRET || "SECRET_KEY",
+            "SECRET_KEY_SIMKARIN_2025",
             { expiresIn: "1d" }
           );
 
@@ -68,8 +68,8 @@ router.post("/login", async (req, res) => {
     }
 
     const token = jwt.sign(
-      { id: user.id, role: user.role },
-      process.env.JWT_SECRET || "SECRET_KEY",
+      { id: user.user_id, role: user.role },
+      "SECRET_KEY_SIMKARIN_2025",
       { expiresIn: "1d" }
     );
 
