@@ -3,11 +3,14 @@ import cors from "cors";
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
+
 import employeeRoutes from "./routes/employee.routes.js";
 import authRoutes from "./routes/auth.js";
 import profileRoutes from "./routes/profile.js"; 
+import reminderRoutes from "./routes/reminder.routes.js";
+import contractRoutes from "./routes/contract.routes.js";
+import db from "./config/db.config.js";
 
-// ESM fix untuk __dirname
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -15,9 +18,9 @@ dotenv.config();
 
 const app = express();
 
-// ===== CORS Configuration - CRITICAL FOR PDF EXPORT =====
+// ===== CORS =====
 app.use(cors({
-  origin: '*', // Allow all origins
+  origin: '*',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -25,8 +28,7 @@ app.use(cors({
 
 app.use(express.json());
 
-// ===== CRITICAL: Static files dengan CORS headers =====
-// Ini yang paling penting untuk export PDF dengan foto!
+// ===== Static Files =====
 app.use('/uploads', (req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET');
@@ -34,13 +36,14 @@ app.use('/uploads', (req, res, next) => {
   next();
 }, express.static(path.join(__dirname, 'uploads')));
 
-// Register Routes
+// ===== Routes =====
 app.use("/api/employees", employeeRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/profile", profileRoutes);  
+app.use("/api/reminder", reminderRoutes);
+app.use("/api/contracts", contractRoutes);
 
+// ===== Start Server =====
 app.listen(5000, () => {
   console.log("🚀 Server running on port 5000");
-  console.log("📁 Static files served from:", path.join(__dirname, 'uploads'));
-  console.log("✅ CORS enabled for all origins");
 });
