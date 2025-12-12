@@ -108,8 +108,8 @@ export const searchEmployees = (req, res) => {
 export const createEmployee = async (req, res) => {
   try {
     const {
-      nik, name, birth_place, birth_date, age, mother_name, religion,
-      address, phone_number, marital_status, last_education, bank_account,
+      nik, name, email, birth_place, birth_date, age, mother_name, religion,
+      address, phone_number, marital_status, last_education, bank_type, bank_account,
       identity_number, tax_number, department_id, position, employment_type,
       salary_all_in, salary_basic, fixed_allowance, non_fixed_allowance,
       bpjs_employment, bpjs_health, date_join, date_end,
@@ -131,16 +131,16 @@ export const createEmployee = async (req, res) => {
 
     const sqlEmployee = `
       INSERT INTO employees
-      (NIK, name, birth_place, birth_date, age, mother_name, religion,
-       address, phone_number, marital_status, last_education, bank_account,
+      (NIK, name, email, birth_place, birth_date, age, mother_name, religion,
+       address, phone_number, marital_status, last_education, bank_type, bank_account,
        identity_number, tax_number, department_id, position, employment_type,
        photo, file_ktp, file_npwp, file_bpjs_kesehatan, file_bpjs_ketenagakerjaan,
        file_kk, file_training, file_mcu, file_cv, file_ijazah)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     const valuesEmployee = [
-      nik, name, birth_place, birth_date, age, mother_name, religion,
-      address, phone_number, marital_status, last_education, bank_account,
+      nik, name, email, birth_place, birth_date, age, mother_name, religion,
+      address, phone_number, marital_status, last_education, bank_type, bank_account,
       identity_number, tax_number, department_id, position, employment_type,
       fileData.photo, fileData.file_ktp, fileData.file_npwp, fileData.file_bpjs_kesehatan,
       fileData.file_bpjs_ketenagakerjaan, fileData.file_kk, fileData.file_training,
@@ -205,8 +205,8 @@ export const updateEmployee = async (req, res) => {
 
   try {
     const {
-      name, birth_place, birth_date, age, mother_name, religion,
-      address, phone_number, marital_status, last_education, bank_account,
+      name, email, birth_place, birth_date, age, mother_name, religion,
+      address, phone_number, marital_status, last_education, bank_type, bank_account,
       identity_number, tax_number, department_id, position, employment_type,
       salary_all_in, salary_basic, fixed_allowance, non_fixed_allowance,
       bpjs_employment, bpjs_health, date_join, date_end, contract_status,
@@ -247,9 +247,9 @@ export const updateEmployee = async (req, res) => {
 
     const sqlEmployee = `
       UPDATE employees SET
-        name = ?, birth_place = ?, birth_date = ?, age = ?, mother_name = ?,
+        name = ?, email = ?, birth_place = ?, birth_date = ?, age = ?, mother_name = ?,
         religion = ?, address = ?, phone_number = ?, marital_status = ?,
-        last_education = ?, bank_account = ?, identity_number = ?, tax_number = ?,
+        last_education = ?, bank_type = ?, bank_account = ?, identity_number = ?, tax_number = ?,
         department_id = ?, position = ?, employment_type = ?,
         photo = ?, file_ktp = ?, file_npwp = ?, file_bpjs_kesehatan = ?,
         file_bpjs_ketenagakerjaan = ?, file_kk = ?, file_training = ?,
@@ -257,8 +257,8 @@ export const updateEmployee = async (req, res) => {
       WHERE NIK = ?
     `;
     const valuesEmployee = [
-      name, birth_place, birth_date, age, mother_name, religion,
-      address, phone_number, marital_status, last_education, bank_account,
+      name, email, birth_place, birth_date, age, mother_name, religion,
+      address, phone_number, marital_status, last_education, bank_type, bank_account,
       identity_number, tax_number, department_id, position, employment_type,
       fileData.photo, fileData.file_ktp, fileData.file_npwp, fileData.file_bpjs_kesehatan,
       fileData.file_bpjs_ketenagakerjaan, fileData.file_kk, fileData.file_training,

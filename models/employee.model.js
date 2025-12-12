@@ -203,20 +203,22 @@ getByEmploymentType: (type, keyword, division, department, callback) => {
   create: (data, callback) => {
     const query = `
       INSERT INTO employees 
-      (NIK, name, address, birth_place, birth_date, age, 
-       phone_number, last_education, mother_name, religion, marital_status,
+      (NIK, name, email, address, birth_place, birth_date, age, 
+       phone_number, last_education, bank_type, mother_name, religion, marital_status,
        department_id, employment_type, identity_number, tax_number, bank_account, position)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     db.query(query, [
       data.nik,
       data.name,
+      data.email,
       data.address,
       data.birth_place,
       data.birth_date,
       data.age,
       data.phone_number,
       data.last_education,
+      data.bank_type,
       data.mother_name,
       data.religion,
       data.marital_status,
@@ -233,20 +235,22 @@ getByEmploymentType: (type, keyword, division, department, callback) => {
   update: (nik, data, callback) => {
     const query = `
       UPDATE employees SET
-        NIK=?, name=?, address=?, birth_place=?, birth_date=?, age=?,
-        phone_number=?, last_education=?, mother_name=?, religion=?, marital_status=?,
+        NIK=?, name=?, email=?, address=?, birth_place=?, birth_date=?, age=?,
+        phone_number=?, last_education=?, bank_type=?, mother_name=?, religion=?, marital_status=?,
         department_id=?, employment_type=?, identity_number=?, tax_number=?, bank_account=?, position=?
       WHERE NIK=?
     `;
     db.query(query, [
       data.nik,
       data.name,
+      data.email,
       data.address,
       data.birth_place,
       data.birth_date,
       data.age,
       data.phone_number,
       data.last_education,
+      data.bank_type,
       data.mother_name,
       data.religion,
       data.marital_status,
